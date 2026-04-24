@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getCachedFile } from "../figma/client.js";
 import { parseFigmaLink } from "../security/validator.js";
-import { getRateLimiter } from "../security/rateLimiter.js";
 import { searchNodes, findNodeById } from "../utils/designExtractor.js";
 
 const SearchNodesSchema = z.object({
@@ -24,8 +23,7 @@ const SearchNodesSchema = z.object({
 });
 
 async function handleSearchNodes(params: z.infer<typeof SearchNodesSchema>) {
-  getRateLimiter().checkLimit("search_nodes");
-  const { fileId, nodeId } = parseFigmaLink(params.link);
+const { fileId, nodeId } = parseFigmaLink(params.link);
   const file = await getCachedFile(fileId);
   const doc = file.document as Record<string, unknown>;
 

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getCachedFile } from "../figma/client.js";
 import { parseFigmaLink } from "../security/validator.js";
-import { getRateLimiter } from "../security/rateLimiter.js";
 import { collectAllColors, findNodeById } from "../utils/designExtractor.js";
 
 const GetNodeColorsSchema = z.object({
@@ -25,8 +24,7 @@ function resolveNodeFromFile(
 }
 
 async function handleGetNodeColors(params: z.infer<typeof GetNodeColorsSchema>) {
-  getRateLimiter().checkLimit("get_node_colors");
-  const { fileId, nodeId } = parseFigmaLink(params.link);
+const { fileId, nodeId } = parseFigmaLink(params.link);
   const file = await getCachedFile(fileId);
   const node = resolveNodeFromFile(file, nodeId);
   const colors = collectAllColors(node);

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getCachedFile } from "../figma/client.js";
 import { parseFigmaLink } from "../security/validator.js";
-import { getRateLimiter } from "../security/rateLimiter.js";
 import { extractNodeContext, findNodeById } from "../utils/designExtractor.js";
 
 const GetNodeContextSchema = z.object({
@@ -34,8 +33,7 @@ function resolveNodeFromFile(
 }
 
 async function handleGetNodeContext(params: z.infer<typeof GetNodeContextSchema>) {
-  getRateLimiter().checkLimit("get_node_context");
-  const { fileId, nodeId } = parseFigmaLink(params.link);
+const { fileId, nodeId } = parseFigmaLink(params.link);
   const file = await getCachedFile(fileId);
   const node = resolveNodeFromFile(file, nodeId);
   const context = extractNodeContext(node, 0, params.max_depth ?? 10);

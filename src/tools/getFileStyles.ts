@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getFigmaClient } from "../figma/client.js";
 import { parseFigmaLink } from "../security/validator.js";
-import { getRateLimiter } from "../security/rateLimiter.js";
 
 const GetFileStylesSchema = z.object({
   link: z.string().describe("Figma file link or file ID"),
@@ -13,8 +12,7 @@ const GetFileStylesSchema = z.object({
 });
 
 async function handleGetFileStyles(params: z.infer<typeof GetFileStylesSchema>) {
-  getRateLimiter().checkLimit("get_file_styles");
-  const { fileId } = parseFigmaLink(params.link);
+const { fileId } = parseFigmaLink(params.link);
   const client = getFigmaClient();
   const data = await client.getFileStyles(fileId);
   const meta = (data as Record<string, unknown>).meta as Record<string, unknown>;

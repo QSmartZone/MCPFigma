@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getCachedFile, summarizeNode } from "../figma/client.js";
 import { parseFigmaLink } from "../security/validator.js";
-import { getRateLimiter } from "../security/rateLimiter.js";
 import { findNodeById } from "../utils/designExtractor.js";
 
 const GetNodeLayersSchema = z.object({
@@ -30,8 +29,7 @@ function resolveNodeFromFile(
 }
 
 async function handleGetNodeLayers(params: z.infer<typeof GetNodeLayersSchema>) {
-  getRateLimiter().checkLimit("get_node_layers");
-  const { fileId, nodeId } = parseFigmaLink(params.link);
+const { fileId, nodeId } = parseFigmaLink(params.link);
   const file = await getCachedFile(fileId);
   const node = resolveNodeFromFile(file, nodeId);
   const layers = summarizeNode(node as Record<string, unknown>, 0, params.max_depth ?? 15);

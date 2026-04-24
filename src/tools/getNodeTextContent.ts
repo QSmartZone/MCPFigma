@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getCachedFile } from "../figma/client.js";
 import { parseFigmaLink } from "../security/validator.js";
-import { getRateLimiter } from "../security/rateLimiter.js";
 import { collectTextNodes, findNodeById } from "../utils/designExtractor.js";
 
 const GetNodeTextContentSchema = z.object({
@@ -25,8 +24,7 @@ function resolveNodeFromFile(
 }
 
 async function handleGetNodeTextContent(params: z.infer<typeof GetNodeTextContentSchema>) {
-  getRateLimiter().checkLimit("get_node_text_content");
-  const { fileId, nodeId } = parseFigmaLink(params.link);
+const { fileId, nodeId } = parseFigmaLink(params.link);
   const file = await getCachedFile(fileId);
   const node = resolveNodeFromFile(file, nodeId);
   const textNodes = collectTextNodes(node);

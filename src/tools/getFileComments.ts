@@ -1,15 +1,13 @@
 import { z } from "zod";
 import { getFigmaClient } from "../figma/client.js";
 import { parseFigmaLink } from "../security/validator.js";
-import { getRateLimiter } from "../security/rateLimiter.js";
 
 const GetFileCommentsSchema = z.object({
   link: z.string().describe("Figma file link or file ID"),
 });
 
 async function handleGetFileComments(params: z.infer<typeof GetFileCommentsSchema>) {
-  getRateLimiter().checkLimit("get_file_comments");
-  const { fileId } = parseFigmaLink(params.link);
+const { fileId } = parseFigmaLink(params.link);
   const client = getFigmaClient();
   const data = await client.getFileComments(fileId);
 

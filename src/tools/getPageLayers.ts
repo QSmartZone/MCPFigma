@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getCachedFile, summarizeNode } from "../figma/client.js";
 import { parseFigmaLink } from "../security/validator.js";
-import { getRateLimiter } from "../security/rateLimiter.js";
 
 const GetPageLayersSchema = z.object({
   link: z.string().describe("Figma file link or file ID"),
@@ -12,8 +11,7 @@ const GetPageLayersSchema = z.object({
 });
 
 async function handleGetPageLayers(params: z.infer<typeof GetPageLayersSchema>) {
-  getRateLimiter().checkLimit("get_page_layers");
-  const { fileId } = parseFigmaLink(params.link);
+const { fileId } = parseFigmaLink(params.link);
   const file = await getCachedFile(fileId);
   const doc = file.document as Record<string, unknown>;
   let pages = doc.children as Record<string, unknown>[];

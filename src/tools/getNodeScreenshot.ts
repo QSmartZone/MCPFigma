@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getFigmaClient } from "../figma/client.js";
 import { parseFigmaLink } from "../security/validator.js";
-import { getRateLimiter } from "../security/rateLimiter.js";
 
 const GetNodeScreenshotSchema = z.object({
   link: z.string().describe("Figma node link or file ID"),
@@ -18,8 +17,7 @@ const GetNodeScreenshotSchema = z.object({
 });
 
 async function handleGetNodeScreenshot(params: z.infer<typeof GetNodeScreenshotSchema>) {
-  getRateLimiter().checkLimit("get_node_screenshot");
-  const { fileId, nodeId } = parseFigmaLink(params.link);
+const { fileId, nodeId } = parseFigmaLink(params.link);
   if (!nodeId) throw new Error("node-id is required for screenshot");
 
   const client = getFigmaClient();

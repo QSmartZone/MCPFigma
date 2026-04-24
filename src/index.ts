@@ -2,7 +2,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { config } from "./config.js";
 import { initializeFigmaClient } from "./figma/client.js";
-import { initializeRateLimiter } from "./security/rateLimiter.js";
 import { getNodeContextTool } from "./tools/getNodeContext.js";
 import { getNodeLayersTool } from "./tools/getNodeLayers.js";
 import { getNodeColorsTool } from "./tools/getNodeColors.js";
@@ -24,7 +23,6 @@ import { getComponentTool } from "./tools/getComponent.js";
 // ─── Initialize singleton services ────────────────────────────────────────────
 
 initializeFigmaClient(config.figmaToken);
-initializeRateLimiter(config.rateLimitPerMinute);
 
 // ─── Create and configure MCP server ──────────────────────────────────────────
 

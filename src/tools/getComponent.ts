@@ -1,14 +1,12 @@
 import { z } from "zod";
 import { getFigmaClient } from "../figma/client.js";
-import { getRateLimiter } from "../security/rateLimiter.js";
 
 const GetComponentSchema = z.object({
   component_key: z.string().describe("Component key from Figma"),
 });
 
 async function handleGetComponent(params: z.infer<typeof GetComponentSchema>) {
-  getRateLimiter().checkLimit("get_component");
-  const client = getFigmaClient();
+const client = getFigmaClient();
   const data = await client.getComponent(params.component_key);
 
   return [

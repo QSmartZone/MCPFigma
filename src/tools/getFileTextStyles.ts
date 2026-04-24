@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getCachedFile, getFigmaClient } from "../figma/client.js";
 import { parseFigmaLink } from "../security/validator.js";
-import { getRateLimiter } from "../security/rateLimiter.js";
 import { collectTextNodes } from "../utils/designExtractor.js";
 
 const GetFileTextStylesSchema = z.object({
@@ -9,8 +8,7 @@ const GetFileTextStylesSchema = z.object({
 });
 
 async function handleGetFileTextStyles(params: z.infer<typeof GetFileTextStylesSchema>) {
-  getRateLimiter().checkLimit("get_file_text_styles");
-  const { fileId } = parseFigmaLink(params.link);
+const { fileId } = parseFigmaLink(params.link);
   const client = getFigmaClient();
   const data = await client.getFileStyles(fileId);
   const meta = (data as Record<string, unknown>).meta as Record<string, unknown>;

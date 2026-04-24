@@ -1,15 +1,13 @@
 import { z } from "zod";
 import { getCachedFile } from "../figma/client.js";
 import { parseFigmaLink } from "../security/validator.js";
-import { getRateLimiter } from "../security/rateLimiter.js";
 
 const GetFileInfoSchema = z.object({
   link: z.string().describe("Figma file link or file ID"),
 });
 
 async function handleGetFileInfo(params: z.infer<typeof GetFileInfoSchema>) {
-  getRateLimiter().checkLimit("get_file_info");
-  const { fileId } = parseFigmaLink(params.link);
+const { fileId } = parseFigmaLink(params.link);
   const file = await getCachedFile(fileId);
   const doc = file.document as Record<string, unknown>;
   const pages = (doc.children as Record<string, unknown>[]).map((p) => ({

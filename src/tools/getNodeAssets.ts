@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getCachedFile, getFigmaClient } from "../figma/client.js";
 import { parseFigmaLink } from "../security/validator.js";
-import { getRateLimiter } from "../security/rateLimiter.js";
 import { collectImageFillRefs, findNodeById } from "../utils/designExtractor.js";
 
 const GetNodeAssetsSchema = z.object({
@@ -35,8 +34,7 @@ function resolveNodeFromFile(
 }
 
 async function handleGetNodeAssets(params: z.infer<typeof GetNodeAssetsSchema>) {
-  getRateLimiter().checkLimit("get_node_assets");
-  const { fileId, nodeId } = parseFigmaLink(params.link);
+const { fileId, nodeId } = parseFigmaLink(params.link);
   const file = await getCachedFile(fileId);
   const node = resolveNodeFromFile(file, nodeId);
   const client = getFigmaClient();

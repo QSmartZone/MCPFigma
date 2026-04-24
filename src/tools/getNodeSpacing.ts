@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getCachedFile } from "../figma/client.js";
 import { parseFigmaLink } from "../security/validator.js";
-import { getRateLimiter } from "../security/rateLimiter.js";
 import { extractSpacing, findNodeById } from "../utils/designExtractor.js";
 
 const GetNodeSpacingSchema = z.object({
@@ -25,8 +24,7 @@ function resolveNodeFromFile(
 }
 
 async function handleGetNodeSpacing(params: z.infer<typeof GetNodeSpacingSchema>) {
-  getRateLimiter().checkLimit("get_node_spacing");
-  const { fileId, nodeId } = parseFigmaLink(params.link);
+const { fileId, nodeId } = parseFigmaLink(params.link);
   const file = await getCachedFile(fileId);
   const node = resolveNodeFromFile(file, nodeId);
 
