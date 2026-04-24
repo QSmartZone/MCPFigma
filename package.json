@@ -1,19 +1,26 @@
 {
   "name": "mcp-figma",
   "version": "1.0.0",
-  "description": "Self-hosted MCP server for Figma - fetch node context, properties, styling, and screenshots",
+  "description": "Self-hosted MCP server for Figma design context extraction",
+  "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
+    "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
-    "start": "node dist/index.js"
+    "watch": "tsc --watch"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.10.2"
+    "@modelcontextprotocol/sdk": "^1.10.2",
+    "axios": "^1.7.9",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
