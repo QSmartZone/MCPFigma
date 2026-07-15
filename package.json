@@ -1,24 +1,18 @@
 {
   "name": "mcp-figma",
   "version": "1.0.0",
-  "description": "Self-hosted MCP server for Figma design context extraction",
+  "description": "Figma plugin bundled TypeScript, esbuild, talks to figma-mcp-go Go server over WebSocket",
   "type": "module",
-  "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "tsx src/index.ts",
-    "watch": "tsc --watch"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.10.2",
-    "axios": "^1.7.9",
-    "zod": "^3.24.1"
+    "build:plugin": "node scripts/build.mjs",
+    "test": "vitest"
   },
   "devDependencies": {
+    "@figma/plugin-typings": "^1.100.0",
     "@types/node": "^22.10.2",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.0"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -1,45 +1,93 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file describes the Figma plugin implementation architecture and development workflow.
 
-## Commands
+## Build & Run
 
 ```bash
-npm run build      # tsc → dist/
-npm run dev        # run via tsx (no build needed)
-npm run watch      # tsc --watch
-npm run start      # run compiled dist/index.js
+npm install          # Install devDependencies
+npm run build:plugin # Build plugin/src/ -> plugin/dist/ (TypeScript + esbuild)
 ```
 
-No test runner configured. No lint script defined.
+Build output: `plugin/dist/code.js` (main thread) and `plugin/dist/index.html` (UI iframe, self-contained).
 
-**Required env var:** `FIGMA_TOKEN` must be set. Optional: `LOG_LEVEL` (error|warn|info|debug, default info).
+No server code in this repo. The plugin talks to a separate Go server (`@vkhanhqui/figma-mcp-go`) over WebSocket.
 
 ## Architecture
 
-MCP server over stdio transport. Each tool is a self-contained module in `src/tools/` with a consistent shape:
+**Figma Plugin (this repo)**
+
+- **plugin/src/code.ts** — main thread (Figma sandbox IIFE)
+  - Receives messages from UI iframe
+  - Dispatches commands to handler files via a registry (Task 2+)
+  - Calls Figma async APIs (`figma.createFrame`, `figma.loadAllPagesAsync`, etc.)
+  - Sends back success/error/progress responses
+- **plugin/src/ui.ts** — iframe UI (browser context IIFE)
+  - WebSocket connection to `ws://{host}:{port}/ws` (defaults `127.0.0.1:1994`)
+  - Relays each incoming server message to main thread via `postMessage`
+  - Relays main thread responses back over WebSocket
+  - UI controls (settings form, status display)
+- **plugin/dist/index.html** — self-contained HTML (build artifact)
+  - ui.ts bundled and inlined as a single `<script>` tag
+
+**Go Server (separate repo)**
+
+- Listens on WebSocket
+- Sends requests with `{type, requestId, ...params}`
+- Plugin responds with `{type, requestId, data}` or `{type, requestId, error}`
+- Long-running ops may emit `{type: "progress_update", requestId, progress, message}`
+
+**Protocol** (fixed by spec — defined in `/Users/ctquyen/Documents/project/self-project/MCP-self/MCP-figma-go/plugin/dist/code.js`)
+
+- Success: `{type: string, requestId: string, data: object}`
+- Error: `{type: string, requestId: string, error: {message: string, code?: string}}`
+- Progress: `{type: "progress_update", requestId: string, progress: number, message: string}`
+
+## Handler Structure (Task 2+)
+
+Registry maps command type → handler file. Each handler:
 
 ```ts
-export const xTool = { name, description, schema: ZodObject, handler: async (params) => MCP content[] }
+export async function handleXyz(params: XyzParams): Promise<XyzData> {
+  // Call figma.* APIs
+  // Return data matching spec (reference oracle: MCP-figma-go/plugin/dist/code.js)
+}
 ```
 
-`src/index.ts` imports all tools, registers them on `McpServer` in a loop, wraps each handler in try/catch that serializes errors as JSON text content.
+Handlers live in `plugin/src/handlers/{read,create,modify,styles,variables,components,pages,prototype}/`.
 
-**Key singletons** (must be initialized before tools run):
-- `FigmaClient` — `src/figma/client.ts` — wraps Figma REST API via axios, holds auth token
-- File cache — 5-second TTL map inside `client.ts`, shared via `getCachedFile(fileId)`
+## Tech Stack
 
-**Request flow for node tools:**
-1. `parseFigmaLink()` (`src/security/validator.ts`) — extracts `fileId` + `nodeId` from URL or bare ID, validates format with regex
-2. `getCachedFile(fileId)` — fetches full file JSON, caches 5s
-3. `findNodeById()` (`src/utils/designExtractor.ts`) — DFS walk; accepts both `1:23` and `1-23` node ID formats
-4. Extraction helpers in `designExtractor.ts` pull colors, spacing, typography, effects, component info from raw Figma node JSON
+- **Language:** TypeScript
+- **Bundler:** esbuild (no webpack/vite for Figma sandbox compatibility)
+- **Plugin typings:** @figma/plugin-typings (v1.100+)
+- **Tests:** vitest (Task 2+ when tests are written)
+- **Node version:** >=18.0.0
 
-**Tool categories:**
-- `getNode*` — operate on a specific node within a file (require `link` param with node-id)
-- `getFile*` — operate on file-level resources (styles, components, variables, comments)
-- `getPage*` / `searchNodes` / `getComponent` — broader queries
+## Project Status
 
-**Node ID gotcha:** Figma API returns IDs as `"1:23"`, URLs encode them as `"1-23"`. `findNodeById` and `parseFigmaLink` both normalize between the two forms.
+**Task 1** (current): Scaffold — repo cleaned, build pipeline working, stubs in place.
 
-**Variables endpoint** silently returns `{}` for Viewer-level tokens (Editor access required); handled in `FigmaClient.getFileVariables`.
+**Task 2+**: Dispatcher, handlers (72 commands), WebSocket bridge, testing.
+
+See `.claude/docs/plans/figma-plugin-rebuild-plan.md` for full task breakdown.
+
+## Adding a New Handler
+
+1. Create handler file under `plugin/src/handlers/{category}/commandName.ts`
+2. Export `async function handle{CommandName}(params): Promise<Data>`
+3. Call Figma APIs; match reference oracle data shape from `MCP-figma-go/plugin/dist/code.js` case block
+4. Register in `plugin/src/handlers/index.ts` registry
+5. Run `npm run build:plugin` and test via Claude Code
+
+## DocumentAccess Mode
+
+Plugin runs with `"documentAccess": "dynamic-page"` — only async Figma APIs are available:
+
+- `getNodeByIdAsync`
+- `loadAllPagesAsync` (before traversing entire document)
+- `loadFontAsync` (before text mutations)
+- `setCurrentPageAsync` (navigate)
+- Async setters: `setFillStyleIdAsync`, `setStrokeStyleIdAsync`, etc.
+
+No synchronous `getNodeById` or direct `currentPage` access. Plan for async throughout.

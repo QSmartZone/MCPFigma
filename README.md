@@ -1,184 +1,166 @@
-# MCP Figma
+# MCP Figma Plugin
 
-A self-hosted [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that exposes Figma design data to AI assistants via stdio transport. Extract design tokens, components, styles, layers, and metadata directly from your Figma files.
+A Figma plugin implementing the WebSocket protocol for `@vkhanhqui/figma-mcp-go`, giving AI assistants (via MCP) live read/write access to a Figma file.
 
-## Prerequisites
+## Architecture
 
-- **Node.js** >= 18.0.0
-- **Figma Personal Access Token** — required to authenticate with the Figma API
-  - Create one at [figma.com/developers/settings](https://www.figma.com/developers/settings)
-  - Use an **Editor** token if you need access to design variables (otherwise **Viewer** token works for most tools)
+### Plugin Structure
 
-## Installation & Setup
+**plugin/src/code.ts** — main thread (Figma sandbox)
 
-### 1. Clone and Install Dependencies
+- Receives `postMessage` from the UI iframe
+- Dispatches requests via a handler registry (`plugin/src/dispatcher.ts`, pure TypeScript, no Figma imports)
+- Calls Figma async APIs (`documentAccess: dynamic-page` mode):
+  - `getNodeByIdAsync`, `loadAllPagesAsync`, `loadFontAsync`, `setCurrentPageAsync`
+  - Async style/variable setters (`setFillStyleIdAsync`, `setStrokeStyleIdAsync`, etc.)
+- Returns responses over `postMessage` to the UI
+
+**plugin/src/ui.ts** / **plugin/dist/index.html** — UI iframe (browser context)
+
+- Owns the WebSocket connection to `ws://{host}:{port}/ws` (default `127.0.0.1:1994`)
+- Relays server requests to the main thread via `postMessage`
+- Relays main-thread responses back over the socket
+- Reconnects with exponential backoff (1s → 5s cap)
+- Settings form (host/port) persisted via `figma.clientStorage`
+
+### Protocol
+
+Fixed protocol between plugin and Go server:
+
+**Request** (from server):
+
+```json
+{
+  "type": "command_name",
+  "requestId": "string",
+  "...flat params": "..."
+}
+```
+
+**Success response**:
+
+```json
+{
+  "type": "command_name",
+  "requestId": "string",
+  "data": { "...": "..." }
+}
+```
+
+**Error response**:
+
+```json
+{
+  "type": "command_name",
+  "requestId": "string",
+  "error": { "message": "error description" }
+}
+```
+
+**Progress updates** (for long-running operations):
+
+```json
+{
+  "type": "progress_update",
+  "requestId": "string",
+  "progress": 0.5,
+  "message": "operation in progress"
+}
+```
+
+### Handler Registry
+
+72 total commands, organized by category. Handlers live in `plugin/src/handlers/{category}/` and registered in `plugin/src/handlers/index.ts`:
+
+| Category       | Count | Handlers                                                                                                                                                                                                                                                                                                                                                |
+| -------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **read**       | 20    | get_document, get_selection, get_node, get_nodes_info, get_metadata, get_pages, get_viewport, get_fonts, search_nodes, get_annotations, get_design_context, get_reactions, get_styles, get_variable_defs, get_local_components, export_tokens, scan_text_nodes, scan_nodes_by_types, get_screenshot, export_frames_to_pdf                               |
+| **create**     | 7     | create_frame, create_rectangle, create_ellipse, create_text, import_image, create_component, create_section                                                                                                                                                                                                                                             |
+| **modify**     | 24    | set_text, set_fills, set_strokes, rename_node, set_opacity, set_corner_radius, set_auto_layout, set_visible, set_blend_mode, set_constraints, set_effects, move_nodes, resize_nodes, clone_node, lock_nodes, unlock_nodes, rotate_nodes, reorder_nodes, reparent_nodes, batch_rename_nodes, find_replace_text, delete_nodes, group_nodes, ungroup_nodes |
+| **styles**     | 7     | create_paint_style, create_text_style, create_effect_style, create_grid_style, update_paint_style, delete_style, apply_style_to_node                                                                                                                                                                                                                    |
+| **variables**  | 6     | create_variable_collection, create_variable, set_variable_value, add_variable_mode, bind_variable_to_node, delete_variable                                                                                                                                                                                                                              |
+| **components** | 2     | swap_component, detach_instance                                                                                                                                                                                                                                                                                                                         |
+| **pages**      | 4     | add_page, delete_page, rename_page, navigate_to_page                                                                                                                                                                                                                                                                                                    |
+| **prototype**  | 2     | set_reactions, remove_reactions                                                                                                                                                                                                                                                                                                                         |
+
+## Install
 
 ```bash
 git clone <repository-url>
 cd mcp-figma
 npm install
+npm run build:plugin
 ```
 
-### 2. Configure Environment Variables
+Build output: `plugin/dist/code.js` (main thread) and `plugin/dist/index.html` (UI iframe, self-contained).
 
-Create a `.env` file in the project root or set these in your shell environment:
+Then in Figma Desktop:
+
+1. Menu → Plugins → Development → Import plugin from manifest...
+2. Select `plugin/manifest.json` in this repository
+
+## Server Setup
+
+The plugin needs the companion Go MCP server running to receive commands:
 
 ```bash
-# Required
-FIGMA_TOKEN=your_personal_access_token_here
-
-# Optional (defaults shown)
-LOG_LEVEL=info
+npx -y @vkhanhqui/figma-mcp-go
 ```
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `FIGMA_TOKEN` | Yes | — | Figma Personal Access Token (Editor or Viewer) |
-| `LOG_LEVEL` | No | `info` | Log level: `error`, `warn`, `info`, or `debug` |
+This starts the server on `ws://127.0.0.1:1994/ws` by default — matching the plugin's default host/port.
 
-### 3. Build (Optional)
+Run the plugin in Figma Desktop; the UI panel shows connection status and allows changing the server host/port if it runs elsewhere.
 
-For production, compile TypeScript:
+## Build
 
 ```bash
-npm run build
-npm run start
+npm run build:plugin
 ```
 
-For development with hot reload:
+Single build script. Bundles `plugin/src/code.ts` → `plugin/dist/code.js` and `plugin/src/ui.ts` (inlined) → `plugin/dist/index.html` via esbuild.
+
+Run tests (pure TypeScript, no Figma globals needed):
 
 ```bash
-npm run dev
+npm run test       # or: npx vitest run
 ```
 
-Or watch mode:
+Test suite covers dispatcher and serialize logic (19 tests).
 
-```bash
-npm run watch
-```
+## Adding a New Handler
 
-## Connecting to an MCP Client
+1. **Create** handler file: `plugin/src/handlers/{category}/command-name.ts`
 
-### Claude Desktop
+   ```ts
+   export async function handleCommandName(params: any): Promise<Data> {
+     // Call Figma async APIs
+     // Return ONLY the raw data object (dispatcher wraps in response envelope)
+     return { ... };
+   }
+   ```
 
-Add this server to your Claude Desktop configuration:
+2. **Match the spec**: Look up exact param names and `data` shape from the reference oracle in `/Users/ctquyen/Documents/project/self-project/MCP-self/MCP-figma-go/plugin/dist/code.js` (corresponding `case "command_name"` block). Match it exactly.
 
-**macOS/Linux:** `~/.config/Claude/claude_desktop_config.json`
+3. **Register** in `plugin/src/handlers/index.ts`:
 
-**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+   ```ts
+   import { handleCommandName } from "./category/command-name";
+   registerHandler("command_name", handleCommandName);
+   ```
 
-```json
-{
-  "mcpServers": {
-    "figma": {
-      "command": "node",
-      "args": ["/path/to/mcp-figma/dist/index.js"],
-      "env": {
-        "FIGMA_TOKEN": "your_token_here"
-      }
-    }
-  }
-}
-```
+4. **Build and test**:
 
-Or use `npm run dev` for development:
+   ```bash
+   npm run build:plugin
+   npm run test
+   ```
 
-```json
-{
-  "mcpServers": {
-    "figma": {
-      "command": "npm",
-      "args": ["run", "dev"],
-      "cwd": "/path/to/mcp-figma",
-      "env": {
-        "FIGMA_TOKEN": "your_token_here"
-      }
-    }
-  }
-}
-```
+   Then manually test via Claude Code / MCP client against the running Go server.
 
-After updating the config, restart Claude Desktop. The Figma tools will appear in the assistant's tool list.
+## Tech Stack
 
-## Available Tools
-
-All 17 tools are exposed through the MCP server. Node-level tools accept a `link` parameter that can be either:
-- A full Figma URL: `https://www.figma.com/design/FILE_ID/...?node-id=1-127`
-- A plain file ID: `FILE_ID`
-
-### Node Tools
-
-These tools extract data from a specific node (component, frame, shape, etc.) within a file.
-
-| Tool | Input | Output |
-|------|-------|--------|
-| **get_node_context** | File ID + Node ID | Full design context (colors, typography, spacing, effects, children hierarchy) |
-| **get_node_layers** | File ID + Node ID | Hierarchical layer tree starting from the node |
-| **get_node_colors** | File ID + Node ID | All color fills and strokes applied to the node |
-| **get_node_spacing** | File ID + Node ID | Layout info (padding, gap, constraints) |
-| **get_node_text_content** | File ID + Node ID | All text content within the node |
-| **get_node_assets** | File ID + Node ID | Image fills and asset references |
-| **get_node_screenshot** | File ID + Node ID | Render the node as a PNG image |
-
-### File Tools
-
-These tools operate on the entire design file and return file-level resources.
-
-| Tool | Input | Output |
-|-------|-------|--------|
-| **get_file_info** | File ID | File metadata (name, modified date, collaborators, owner) |
-| **get_file_styles** | File ID | All design styles (colors, typography, effects, grid) |
-| **get_file_text_styles** | File ID | Text styles only (font, weight, size, line height) |
-| **get_file_color_styles** | File ID | Color styles only |
-| **get_file_components** | File ID | All components in the file |
-| **get_file_variables** | File ID | Design variables (requires Editor token) |
-| **get_file_comments** | File ID | All comments in the file |
-
-### Search & Navigation Tools
-
-| Tool | Input | Output |
-|------|-------|--------|
-| **get_page_layers** | File ID + Page Name | Layer tree for an entire page |
-| **search_nodes** | File ID + Query | Nodes matching name, type, or other criteria |
-| **get_component** | Component Key | Component definition and metadata |
-
-## Security & Validation
-
-- All file and node IDs are validated using regex before API calls
-- File IDs and node IDs in URLs are normalized (e.g., `1-23` → `1:23`) to match Figma API format
-- File metadata is cached locally for 5 seconds to reduce API calls
-- The `FIGMA_TOKEN` is never logged or exposed in error messages
-
-## Troubleshooting
-
-### "Editor token required" for Variables
-
-`get_file_variables` requires an Editor-level Figma token. If you only have Viewer access, the tool will return an empty result.
-
-### Node ID Format Mismatch
-
-Figma uses `1:23` format internally but URLs encode them as `1-23`. The server normalizes both formats automatically.
-
-## Project Structure
-
-```
-src/
-├── index.ts                    # MCP server entry point
-├── config.ts                   # Environment variable parsing
-├── figma/
-│   └── client.ts              # Figma REST API client with caching
-├── security/
-│   └── validator.ts           # File/node ID validation
-├── tools/                      # Tool implementations (17 files)
-│   ├── getNodeContext.ts
-│   ├── getFileStyles.ts
-│   └── ...
-└── utils/
-    └── designExtractor.ts      # Figma JSON parsing helpers
-```
-
-## Useful Links
-
-- [MCP Specification](https://modelcontextprotocol.io/)
-- [Figma REST API Docs](https://www.figma.com/developers/api)
-- [Figma Access Tokens](https://www.figma.com/developers/settings)
+- **Language:** TypeScript
+- **Bundler:** esbuild
+- **Plugin typings:** @figma/plugin-typings (v1.100+)
+- **Tests:** vitest
+- **Node:** >=18.0.0
