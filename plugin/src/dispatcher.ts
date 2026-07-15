@@ -12,10 +12,7 @@ export interface SuccessResponse {
 export interface ErrorResponse {
   type: string;
   requestId: string;
-  error: {
-    message: string;
-    code?: string;
-  };
+  error: string;
 }
 
 export type DispatchResponse = SuccessResponse | ErrorResponse;
@@ -69,9 +66,7 @@ export class Dispatcher {
       return {
         type,
         requestId,
-        error: {
-          message: `Unknown request type: ${type}`,
-        },
+        error: `Unknown request type: ${type}`,
       };
     }
 
@@ -91,9 +86,7 @@ export class Dispatcher {
       return {
         type,
         requestId,
-        error: {
-          message,
-        },
+        error: message,
       };
     }
   }

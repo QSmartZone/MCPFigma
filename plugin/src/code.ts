@@ -65,9 +65,7 @@ figma.ui.onmessage = async (message: any) => {
       figma.ui.postMessage({
         type: payload.type,
         requestId: payload.requestId,
-        error: {
-          message: errorMessage,
-        },
+        error: errorMessage,
       });
     }
     return;

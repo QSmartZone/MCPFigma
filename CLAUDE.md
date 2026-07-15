@@ -40,7 +40,7 @@ No server code in this repo. The plugin talks to a separate Go server (`@vkhanhq
 **Protocol** (fixed by spec — defined in `/Users/ctquyen/Documents/project/self-project/MCP-self/MCP-figma-go/plugin/dist/code.js`)
 
 - Success: `{type: string, requestId: string, data: object}`
-- Error: `{type: string, requestId: string, error: {message: string, code?: string}}`
+- Error: `{type: string, requestId: string, error: string}` (plain message string, not an object)
 - Progress: `{type: "progress_update", requestId: string, progress: number, message: string}`
 
 ## Handler Structure (Task 2+)

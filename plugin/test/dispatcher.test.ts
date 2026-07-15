@@ -102,7 +102,7 @@ describe("Dispatcher", () => {
     expect(response.requestId).toBe("req-throw");
     expect(isError(response)).toBe(true);
     if (isError(response)) {
-      expect(response.error.message).toBe(errorMsg);
+      expect(response.error).toBe(errorMsg);
     }
   });
 
@@ -122,7 +122,7 @@ describe("Dispatcher", () => {
     expect(response.requestId).toBe("req-reject");
     expect(isError(response)).toBe(true);
     if (isError(response)) {
-      expect(response.error.message).toBe(errorMsg);
+      expect(response.error).toBe(errorMsg);
     }
   });
 
@@ -138,7 +138,7 @@ describe("Dispatcher", () => {
     expect(response.requestId).toBe("req-unknown");
     expect(isError(response)).toBe(true);
     if (isError(response)) {
-      expect(response.error.message).toBe(
+      expect(response.error).toBe(
         "Unknown request type: unknown_command",
       );
     }
@@ -157,7 +157,7 @@ describe("Dispatcher", () => {
 
     expect(isError(response)).toBe(true);
     if (isError(response)) {
-      expect(response.error.message).toBe("Custom error message");
+      expect(response.error).toBe("Custom error message");
     }
   });
 
