@@ -83,33 +83,74 @@ Fixed protocol between plugin and Go server:
 | **pages**      | 4     | add_page, delete_page, rename_page, navigate_to_page                                                                                                                                                                                                                                                                                                    |
 | **prototype**  | 2     | set_reactions, remove_reactions                                                                                                                                                                                                                                                                                                                         |
 
-## Install
+## Quick Start
+
+Yêu cầu: Node.js >=18, Figma Desktop app (không dùng bản web).
+
+### Bước 1 — Clone & cài dependencies
 
 ```bash
 git clone <repository-url>
 cd mcp-figma
 npm install
+```
+
+### Bước 2 — Build plugin
+
+```bash
 npm run build:plugin
 ```
 
-Build output: `plugin/dist/code.js` (main thread) and `plugin/dist/index.html` (UI iframe, self-contained).
+Output: `plugin/dist/code.js` (main thread) và `plugin/dist/index.html` (UI iframe, self-contained).
 
-Then in Figma Desktop:
+```
+> mcp-figma@1.0.0 build:plugin
+> node scripts/build.mjs
 
-1. Menu → Plugins → Development → Import plugin from manifest...
-2. Select `plugin/manifest.json` in this repository
+Building code.ts...
+✓ code.js built
+Building ui.ts...
+✓ index.html built
+✓ Build complete
+```
 
-## Server Setup
+### Bước 3 — Import plugin vào Figma Desktop
 
-The plugin needs the companion Go MCP server running to receive commands:
+Mở một file Figma bất kỳ trong Figma Desktop → menu **Plugins** → **Development** → **Import plugin from manifest...** → chọn `plugin/manifest.json` trong repo này.
+
+![Import plugin from manifest](docs/images/step3-import-plugin.png)
+
+_(Chụp: menu Plugins → Development đang mở, thấy mục "Import plugin from manifest...")_
+
+Sau khi import, plugin xuất hiện trong **Plugins → Development** với tên **MCP Figma local**.
+
+### Bước 4 — Chạy Go MCP server
+
+Plugin cần server Go companion chạy song song để nhận lệnh:
 
 ```bash
 npx -y @vkhanhqui/figma-mcp-go
 ```
 
-This starts the server on `ws://127.0.0.1:1994/ws` by default — matching the plugin's default host/port.
+Server nghe mặc định tại `ws://127.0.0.1:1994/ws` — khớp với host/port mặc định của plugin. Log khi chạy thành công:
 
-Run the plugin in Figma Desktop; the UI panel shows connection status and allows changing the server host/port if it runs elsewhere.
+```
+[leader] listening on 127.0.0.1:1994
+[node] became LEADER
+Starting figma-mcp-go 0.1.3 (role: LEADER)
+```
+
+> Lưu ý: nếu chạy server qua `npx ... &` trong background rồi đóng terminal, tiến trình có thể bị kill do stdin đóng (EOF). Giữ terminal mở, hoặc chạy nền đúng cách (vd: `nohup npx -y @vkhanhqui/figma-mcp-go &`).
+
+### Bước 5 — Chạy plugin trong Figma, kiểm tra kết nối
+
+Trong Figma: **Plugins → Development → MCP Figma local** để mở panel. Panel hiện trạng thái kết nối, cho phép đổi host/port nếu server chạy ở nơi khác.
+
+![Plugin connected](docs/images/step5-connected.png)
+
+_(Chụp: panel "MCP Figma local" hiện badge **Connected** màu xanh — nếu server chưa chạy sẽ thấy **Disconnected — retrying in 5.0s...**)_
+
+Kết nối OK → AI assistant (qua MCP) đã có thể đọc/ghi live vào file Figma đang mở.
 
 ## Build
 
